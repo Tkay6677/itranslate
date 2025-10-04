@@ -294,4 +294,5 @@ For questions, issues, or contributions:
 
 ---
 
-**Built with ❤️ for Ijaw language preservation and accessibility**
+**Built with ❤️ for Ijaw language preservation and accessibility**#   i t r a n s l a t e  
+ 
