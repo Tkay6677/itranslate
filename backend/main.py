@@ -10,7 +10,6 @@ import uuid
 import logging
 from typing import Dict, List, Optional
 import re
-import speech_recognition as sr
 from ijaw_grammar import IjawGrammarEngine
 
 # Configure logging
@@ -42,6 +41,20 @@ OUTPUT_DIR = "output_audio"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(DICT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def get_speech_recognition():
+    """Safely import speech_recognition; return None if unavailable.
+
+    On Python 3.13 the standard library module 'aifc' was removed, which
+    causes speech_recognition to fail to import. Returning None lets the
+    app start and endpoints provide a graceful message instead of crashing.
+    """
+    try:
+        import speech_recognition as sr  # type: ignore
+        return sr
+    except Exception as e:
+        logger.error(f"Speech recognition unavailable: {e}")
+        return None
 
 def load_dictionaries():
     """Load English to Ijaw dictionary and audio mappings"""
@@ -122,7 +135,14 @@ def transcribe_audio(audio_file_path: str) -> str:
     logger.info(f"Processing audio file: {audio_file_path}")
     
     try:
-        # Initialize recognizer
+        # Initialize recognizer (lazy import to avoid boot-time failures)
+        sr = get_speech_recognition()
+        if sr is None:
+            logger.error("speech_recognition could not be imported (likely missing 'aifc' on Python 3.13)")
+            return (
+                "Speech recognition is not available on this deployment. "
+                "Please use text translation or upload WAV/AIFF when the service is enabled."
+            )
         recognizer = sr.Recognizer()
         
         # Check if file exists
@@ -207,7 +227,11 @@ def generate_audio_from_text(ijaw_text: str) -> str:
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting English to Ijaw Audio Translator...")
-    logger.info("Speech recognition enabled - ready for real audio transcription")
+    # Attempt speech recognition import to log availability at startup
+    if get_speech_recognition() is None:
+        logger.warning("Speech recognition unavailable (missing 'aifc' on Python 3.13). API will still start.")
+    else:
+        logger.info("Speech recognition available - ready for audio transcription")
     
     load_dictionaries()
     logger.info("Startup complete - ready for real translation")
