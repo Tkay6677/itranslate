@@ -18,7 +18,8 @@ const App = () => {
   const audioPlayerRef = useRef(null);
 
   // API base URL
-  const API_BASE_URL = 'http://localhost:8000';
+  // Prefer env-configured base URL; fall back to proxy/relative
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
 
   // Convert audio blob to WAV format
   const convertToWav = async (audioBlob) => {

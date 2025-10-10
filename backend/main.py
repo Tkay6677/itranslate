@@ -11,6 +11,7 @@ import logging
 from typing import Dict, List, Optional
 import re
 from ijaw_grammar import IjawGrammarEngine
+from TTS import synthesize_speech
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +37,7 @@ grammar_engine = None
 AUDIO_DIR = "audio_files"
 DICT_DIR = "dictionaries"
 OUTPUT_DIR = "output_audio"
+TTS_LANG = os.getenv("TTS_LANG", "en")
 
 # Ensure directories exist
 os.makedirs(AUDIO_DIR, exist_ok=True)
@@ -193,36 +195,36 @@ def transcribe_audio(audio_file_path: str) -> str:
 
 def generate_audio_from_text(ijaw_text: str) -> str:
     """
-    Generate mock Ijaw audio from text
-    For now, creates an empty WAV file as placeholder
+    Generate audio from text using gTTS (MP3 output).
+    Falls back to empty WAV if gTTS fails.
     """
-    # Generate unique filename
-    audio_id = str(uuid.uuid4())[:8]
-    filename = f"ijaw_audio_{audio_id}.wav"
-    filepath = os.path.join(OUTPUT_DIR, filename)
-    
-    # Create a simple empty WAV file (44 bytes header for empty WAV)
-    wav_header = bytes([
-        0x52, 0x49, 0x46, 0x46,  # "RIFF"
-        0x24, 0x00, 0x00, 0x00,  # File size - 8
-        0x57, 0x41, 0x56, 0x45,  # "WAVE"
-        0x66, 0x6D, 0x74, 0x20,  # "fmt "
-        0x10, 0x00, 0x00, 0x00,  # Subchunk1Size
-        0x01, 0x00,              # AudioFormat (PCM)
-        0x01, 0x00,              # NumChannels (mono)
-        0x44, 0xAC, 0x00, 0x00,  # SampleRate (44100)
-        0x88, 0x58, 0x01, 0x00,  # ByteRate
-        0x02, 0x00,              # BlockAlign
-        0x10, 0x00,              # BitsPerSample
-        0x64, 0x61, 0x74, 0x61,  # "data"
-        0x00, 0x00, 0x00, 0x00   # Subchunk2Size (0 for empty)
-    ])
-    
-    with open(filepath, 'wb') as f:
-        f.write(wav_header)
-    
-    logger.info(f"Generated mock Ijaw audio: {filename}")
-    return filename
+    try:
+        filename = synthesize_speech(ijaw_text, lang=TTS_LANG, slow=False)
+        return filename
+    except Exception as e:
+        logger.warning(f"gTTS failed, falling back to empty WAV: {e}")
+        # Fallback empty WAV
+        audio_id = str(uuid.uuid4())[:8]
+        filename = f"ijaw_audio_{audio_id}.wav"
+        filepath = os.path.join(OUTPUT_DIR, filename)
+        wav_header = bytes([
+            0x52, 0x49, 0x46, 0x46,
+            0x24, 0x00, 0x00, 0x00,
+            0x57, 0x41, 0x56, 0x45,
+            0x66, 0x6D, 0x74, 0x20,
+            0x10, 0x00, 0x00, 0x00,
+            0x01, 0x00,
+            0x01, 0x00,
+            0x44, 0xAC, 0x00, 0x00,
+            0x88, 0x58, 0x01, 0x00,
+            0x02, 0x00,
+            0x10, 0x00,
+            0x64, 0x61, 0x74, 0x61,
+            0x00, 0x00, 0x00, 0x00
+        ])
+        with open(filepath, 'wb') as f:
+            f.write(wav_header)
+        return filename
 
 @app.on_event("startup")
 async def startup_event():
@@ -327,17 +329,13 @@ async def translate_audio(audio_file: UploadFile = File(...)):
 
 @app.get("/audio/{filename}")
 async def get_audio(filename: str):
-    """Serve generated audio files"""
+    """Serve generated audio files (MP3 or WAV)"""
     file_path = os.path.join(OUTPUT_DIR, filename)
-    
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Audio file not found")
-    
-    return FileResponse(
-        file_path,
-        media_type="audio/wav",
-        filename=filename
-    )
+    ext = os.path.splitext(filename)[1].lower()
+    media = "audio/mpeg" if ext == ".mp3" else "audio/wav"
+    return FileResponse(file_path, media_type=media, filename=filename)
 
 @app.get("/dictionary")
 async def get_dictionary():
