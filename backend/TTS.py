@@ -21,7 +21,7 @@ def synthesize_speech(text: str, lang: Optional[str] = None, slow: bool = False)
     if not text:
         text = ""
 
-    tts_lang = (lang or os.getenv("TTS_LANG") or "en").strip()
+    tts_lang = (lang or os.getenv("TTS_LANG") or "sw").strip()
     supported = tts_langs()
     if tts_lang not in supported:
         fallback_lang = (os.getenv("TTS_FALLBACK_LANG") or "en").strip()

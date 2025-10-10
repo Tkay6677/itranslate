@@ -37,7 +37,7 @@ grammar_engine = None
 AUDIO_DIR = "audio_files"
 DICT_DIR = "dictionaries"
 OUTPUT_DIR = "output_audio"
-TTS_LANG = os.getenv("TTS_LANG", "en")
+TTS_LANG = os.getenv("TTS_LANG", "sw")
 
 # Ensure directories exist
 os.makedirs(AUDIO_DIR, exist_ok=True)
